@@ -41,18 +41,64 @@ class Artifact:
 
 ARTIFACTS: tuple[Artifact, ...] = (
     # Ian Bartholomew's 8080 port of Frank Cringle's prelim/zexlax; GPL-2.0-or-later.
-    Artifact("8080PRE.COM", "18eb3c79cba42c0718f160be6a1853cb64cdce7aa47d65780189a57bdd98c4e0", 1024, "GPL-2.0-or-later"),
-    Artifact("8080PRE.MAC", "ca1507444929978038ad4f83d18e13bcce72072df2b850932b3982c31cfc1ccc", 4818, "GPL-2.0-or-later"),
-    Artifact("8080EXER.COM", "8e1736b667c088ac63b69f20768a9a237f3cd739b4cb0ebea99b9e39d3ab1da4", 4608, "GPL-2.0-or-later"),
-    Artifact("8080EXER.MAC", "ddf30299b87e7e244251f96f495d6e2946545a296af25675a8cdebc6478dbf9c", 29079, "GPL-2.0-or-later"),
+    Artifact(
+        "8080PRE.COM",
+        "18eb3c79cba42c0718f160be6a1853cb64cdce7aa47d65780189a57bdd98c4e0",
+        1024,
+        "GPL-2.0-or-later",
+    ),
+    Artifact(
+        "8080PRE.MAC",
+        "ca1507444929978038ad4f83d18e13bcce72072df2b850932b3982c31cfc1ccc",
+        4818,
+        "GPL-2.0-or-later",
+    ),
+    Artifact(
+        "8080EXER.COM",
+        "8e1736b667c088ac63b69f20768a9a237f3cd739b4cb0ebea99b9e39d3ab1da4",
+        4608,
+        "GPL-2.0-or-later",
+    ),
+    Artifact(
+        "8080EXER.MAC",
+        "ddf30299b87e7e244251f96f495d6e2946545a296af25675a8cdebc6478dbf9c",
+        29079,
+        "GPL-2.0-or-later",
+    ),
     # Mike Douglas's May 2013 modification with the hardware CRCs compiled in.
-    Artifact("8080EXM.COM", "6e3286e11bb1a8f47b8ee1280b4a067be813193363e3223c99b0d21912f44aeb", 4608, "GPL-2.0-or-later"),
-    Artifact("8080EXM.MAC", "806d3a069b0021e9925c0b7c26fd74a3c397ca7f618a599ab4a8396ebcd1f3f3", 29411, "GPL-2.0-or-later"),
+    Artifact(
+        "8080EXM.COM",
+        "6e3286e11bb1a8f47b8ee1280b4a067be813193363e3223c99b0d21912f44aeb",
+        4608,
+        "GPL-2.0-or-later",
+    ),
+    Artifact(
+        "8080EXM.MAC",
+        "806d3a069b0021e9925c0b7c26fd74a3c397ca7f618a599ab4a8396ebcd1f3f3",
+        29411,
+        "GPL-2.0-or-later",
+    ),
     # Microcosm Associates 1980, donated to the SIG/M CP/M user group; no formal license.
-    Artifact("TST8080.COM", "9561c6fb6c99efe3de00eb77e4044fd102151058b39ac2d7bce10483838a08e7", 1536, "Microcosm 1980, SIG/M donation"),
-    Artifact("TST8080.ASM", "d9f405470a0ec9bb9368bcbef015b0bbb326c3d673ce7ddfc48ba2d978e44940", 14657, "Microcosm 1980, SIG/M donation"),
+    Artifact(
+        "TST8080.COM",
+        "9561c6fb6c99efe3de00eb77e4044fd102151058b39ac2d7bce10483838a08e7",
+        1536,
+        "Microcosm 1980, SIG/M donation",
+    ),
+    Artifact(
+        "TST8080.ASM",
+        "d9f405470a0ec9bb9368bcbef015b0bbb326c3d673ce7ddfc48ba2d978e44940",
+        14657,
+        "Microcosm 1980, SIG/M donation",
+    ),
     # SuperSoft Associates 1981, Diagnostics II; copyright, no license grant. Opt-in.
-    Artifact("CPUTEST.COM", "e61a9a75348c774486c2207080ea4effbf6c2367fdace31b0731081a4144030b", 19200, "proprietary (SuperSoft 1981)", default=False),
+    Artifact(
+        "CPUTEST.COM",
+        "e61a9a75348c774486c2207080ea4effbf6c2367fdace31b0731081a4144030b",
+        19200,
+        "proprietary (SuperSoft 1981)",
+        default=False,
+    ),
 )
 
 
@@ -126,8 +172,12 @@ def main(argv: list[str] | None = None) -> int:
             failures += 1
             print(f"{artifact.name:14} FAILED: {error}", file=sys.stderr)
             continue
-        print(f"{artifact.name:14} {status}; sha256 {artifact.sha256[:16]}... ok; {artifact.license}")
-    print(f"destination: {DESTINATION} (gitignored; pinned to superzazu/8080@{GITHUB_REVISION[:12]})")
+        print(
+            f"{artifact.name:14} {status}; sha256 {artifact.sha256[:16]}... ok; {artifact.license}"
+        )
+    print(
+        f"destination: {DESTINATION} (gitignored; pinned to superzazu/8080@{GITHUB_REVISION[:12]})"
+    )
     return 1 if failures else 0
 
 
