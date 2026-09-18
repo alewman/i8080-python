@@ -25,15 +25,12 @@ at `6c08ccd` from a clean tree.
 | 1, 2, 4 | `pytest -q`: 256-opcode state grid, flag-effect classes, ALU sweep against an independent formulation, worked examples, disassembler, trace, readability contract, 8080PRE, TST8080, 18 lifecycle tests, MAME lockstep | specification; self-checks; emulator-derived | 1,315 passed | 3.5 s | 5.1 s |
 | 2 | `8080PRE.COM` | specification-derived | `8080 Preliminary tests complete`; 1,058 instructions, 7,787 states | < 0.1 s | < 0.1 s |
 | 2 | `TST8080.COM` | specification-derived | `CPU IS OPERATIONAL`; 646 instructions, 4,874 states | < 0.1 s | < 0.1 s |
-| 3 | `8080EXM.COM` | **hardware-captured** | **25 of 25 CRCs match the hardware table**, `Tests complete`; 2,919,050,143 instructions, 23,803,375,621 states | not recorded (see below) | 160.1 s |
+| 3 | `8080EXM.COM` | **hardware-captured** | **25 of 25 CRCs match the hardware table**, `Tests complete`; 2,919,050,143 instructions, 23,803,375,621 states | 1,890.1 s | 160.1 s |
 | 3 | `CPUTEST.COM` (opt-in) | specification-derived | `CPU TESTS OK`; 33,970,946 instructions, 255,649,733 states | 22.5 s | 3.0 s |
 | 5 | MAME 0.285 `invaders` lockstep, 60 frames | emulator-derived | 230,313 lines and 102 interrupt acceptances identical: `pc a b c d e h l sp`, F masked to its five flags, cumulative states = `totalcycles` | 2.5 s | 1.0 s |
 
-**Interpreter for rung 3.** PyPy is the interpreter for 8080EXM: 2.9
-billion instructions at about 18 million per second. A CPython 3.14.4 run of
-8080EXM at `6c08ccd` was still inside its third group after 26 minutes when
-this record was written, so its time is not recorded here. CPython's
-correctness on the same code is covered by every other row. Later commits
+**Interpreter for rung 3.** Both interpreters ran 8080EXM at `6c08ccd` and
+printed all 25 hardware CRCs; PyPy is about 12 times faster. Later commits
 change documentation only, including one docstring in `_core.py`.
 
 **State totals against superzazu/8080.** This host traps BDOS and warm boot

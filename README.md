@@ -19,7 +19,7 @@ PyPy 7.3.20 (Python 3.11.13). Every rung of the ladder in
 | --- | --- | --- |
 | 1. Per-opcode tests | Intel's summary table [UM p. 4-15] and flag rules, transcribed by hand (the specification) | all 256 opcodes; 1,315 tests pass on both interpreters |
 | 2. `8080PRE`, `TST8080` | self-checking CP/M programs (specification-derived) | `8080 Preliminary tests complete`; `CPU IS OPERATIONAL` |
-| 3. `8080EXM` | **hardware-captured**: CRCs from 13 real 8080A chips | **all 25 CRCs match**, 160 s under PyPy |
+| 3. `8080EXM` | **hardware-captured**: CRCs from 13 real 8080A chips | **all 25 CRCs match**, 160 s under PyPy, 31.5 min under CPython |
 | 3. `CPUTEST` (opt-in) | self-checking, proprietary, not fetched by default | `CPU TESTS OK` |
 | 4. Lifecycle | Intel's manuals, section by section; no hardware oracle exists | 18 tests pass |
 | 5. MAME lockstep, `invaders`, 60 frames | MAME 0.285 (emulator-derived, a detector) | 230,313 instructions and 102 interrupt acceptances identical |
