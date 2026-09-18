@@ -53,7 +53,7 @@ indent-style = "space"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = "--strict-markers -ra"
+addopts = "--strict-markers -ra -m \"not slow\""
 pythonpath = ["src", "."]
 markers = [
     "slow: long-running oracle runs (8080EXM, CPUTEST); opt in with -m slow",
