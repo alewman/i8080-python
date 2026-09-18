@@ -14,11 +14,13 @@ emulator-derived: they are a detector, and they agree.
 
 from __future__ import annotations
 
+import io
 from pathlib import Path
 
 import pytest
 
-from validation.cpm import PROGRAMS, SUPERZAZU_STATES, failures, run_com
+from i8080_python import read_trace
+from validation.cpm import PROGRAMS, SUPERZAZU_STATES, failures, run_com, trace_com
 
 EXERCISERS = Path(__file__).resolve().parent / "exercisers"
 
@@ -48,3 +50,15 @@ def test_8080exm_hardware_crcs() -> None:
 @pytest.mark.slow
 def test_cputest() -> None:
     _run("CPUTEST.COM")
+
+
+def test_tst8080_trace_accounts_for_the_whole_run() -> None:
+    path = EXERCISERS / "TST8080.COM"
+    if not path.exists():
+        pytest.skip("TST8080.COM not fetched; run python scripts/fetch_exercisers.py")
+    stream = io.StringIO()
+    count = trace_com(path.read_bytes(), stream, max_steps=100_000)
+    stream.seek(0)
+    records = list(read_trace(stream))
+    assert count == len(records) == 646
+    assert sum(record.states for record in records) == 4_874
