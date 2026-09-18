@@ -1,11 +1,11 @@
-# Start here: the 8080A as this core will model it
+# Start here: the 8080A as this core models it
 
 This page is for someone who has read z80-python's `docs/start-here.md` and
 wants the same key for the Intel 8080A: the register file, the flag byte and
 its fixed bits, the way an opcode byte splits into fields, the complete
 instruction table with state counts, the interrupt model, DAA, and the
-undocumented opcodes. There is no core yet; when there is, the code is the
-reference and this page is the map. Every claim names its source. Sources are
+undocumented opcodes. The code in `src/i8080_python/` is the reference and
+this page is the map. Every claim names its source. Sources are
 listed at the end with their URLs and licenses; `[UM]` is Intel's 1975 User's
 Manual, `[ALP]` the 1981 Assembly Language Programming Manual, `[EXM]` the
 hardware-captured exerciser CRCs described in [validation.md](validation.md).

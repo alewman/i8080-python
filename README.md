@@ -1,33 +1,109 @@
 # i8080-python
 
-A readable, dependency-free Python 3.12+ Intel 8080A **instruction core**, to be
-built in the shape of [z80-python](https://github.com/alewman/z80-python) and
-[6502-python](https://github.com/alewman/6502-python): the host owns memory
+A readable, dependency-free Python 3.12+ Intel 8080A **instruction core**, in
+the shape of [z80-python](https://github.com/alewman/z80-python) and
+[6502-python](https://github.com/alewman/6502-python). The host owns memory
 and the 256 I/O ports and supplies `read_byte`, `write_byte`, `read_port`,
-`write_port`; the core owns registers, flags, instruction semantics, documented
-state counts, and the INT/INTE/HLT lifecycle at instruction boundaries; every
-correctness claim is pinned to an external oracle whose tier is stated.
+`write_port`. The core owns registers, flags, instruction semantics, Intel's
+documented state counts, and the INT/INTE/HLT/RESET lifecycle at instruction
+boundaries. Every correctness claim is pinned to an external oracle whose tier
+is stated.
 
-## Status: documents and oracles only, no core yet
+## Status
 
-This repository currently holds the groundwork a later session builds from:
+Certified at commit `6c08ccd` (2026-09-18) on Linux x86_64, CPython 3.14.4 and
+PyPy 7.3.20 (Python 3.11.13). Every rung of the ladder in
+[docs/handoff-brief.md](docs/handoff-brief.md) passes:
 
-- the processor as the core will model it ([docs/start-here.md](docs/start-here.md)),
-- state counts and what a Space Invaders host needs from them ([docs/timing.md](docs/timing.md)),
-- undocumented opcodes and flag results with their evidence ([docs/undocumented-behavior.md](docs/undocumented-behavior.md)),
-- every oracle found for the 8080, ranked by tier ([docs/validation.md](docs/validation.md)),
-- a script that fetches the CP/M exercisers with pinned hashes ([scripts/fetch_exercisers.py](scripts/fetch_exercisers.py)),
-- a working MAME 0.285 trace recipe ([docs/mame-oracle.md](docs/mame-oracle.md)),
-- the brief for the session that writes the core ([docs/handoff-brief.md](docs/handoff-brief.md)).
+| Rung | Oracle and tier | Result |
+| --- | --- | --- |
+| 1. Per-opcode tests | Intel's summary table [UM p. 4-15] and flag rules, transcribed by hand (the specification) | all 256 opcodes; 1,315 tests pass on both interpreters |
+| 2. `8080PRE`, `TST8080` | self-checking CP/M programs (specification-derived) | `8080 Preliminary tests complete`; `CPU IS OPERATIONAL` |
+| 3. `8080EXM` | **hardware-captured**: CRCs from 13 real 8080A chips | **all 25 CRCs match**, 160 s under PyPy |
+| 3. `CPUTEST` (opt-in) | self-checking, proprietary, not fetched by default | `CPU TESTS OK` |
+| 4. Lifecycle | Intel's manuals, section by section; no hardware oracle exists | 18 tests pass |
+| 5. MAME lockstep, `invaders`, 60 frames | MAME 0.285 (emulator-derived, a detector) | 230,313 instructions and 102 interrupt acceptances identical |
 
-There is no `src/` directory, no package, and no test suite. Nothing here is a
-correctness claim about any code.
+The instruction set is **verified against real 8080A hardware** where
+8080EXM reaches: every documented ALU, INR/DCR, INX/DCX, DAD, load, store,
+MVI, MOV, rotate, and DAA instruction, with all eight flag bits. State counts,
+branches, I/O, and the interrupt lifecycle are checked against the manuals and
+**cross-checked against an emulator** (MAME, and superzazu/8080's state
+totals, which every exerciser run matches exactly). The twelve undocumented
+opcodes follow emulator consensus and are unverified on hardware. The pinned
+hashes, commands, and timings are in [docs/validation.md](docs/validation.md).
+
+## Using it
+
+```python
+from i8080_python import I8080CPU
+
+
+class Machine(I8080CPU):
+    def __init__(self):
+        super().__init__()
+        self.memory = bytearray(0x10000)
+
+    def read_byte(self, addr):
+        return self.memory[addr]
+
+    def write_byte(self, addr, value):
+        self.memory[addr] = value
+
+    def read_port(self, port):  # 0..255
+        return 0xFF
+
+    def write_port(self, port, value):
+        pass
+
+
+cpu = Machine()
+cpu.memory[0:2] = bytes((0x3E, 0x2A))  # MVI A,2AH
+assert cpu.step() == 7 and cpu.a == 0x2A
+```
+
+`step()` runs one instruction or one lifecycle boundary and returns its state
+count. Interrupts are requested between steps with the byte the board puts on
+the bus, `request_interrupt(0xCF)` for `RST 1`. The request is level-held and
+is accepted when INTE allows, after the EI delay. RESET is
+`request_reset()` / `clear_reset()`. `capture_state()` returns an immutable
+`CPUState`. `disassemble()` decodes Intel syntax from a side-effect-free
+reader. `trace_steps()` produces the JSON Lines conformance trace described
+in [docs/trace-schema.md](docs/trace-schema.md).
+
+Stated limitations: only one-byte instructions can be injected on interrupt
+acknowledge (the 8228's three-byte `CALL` is refused), and the halt idle (7
+states) and RESET (3 states) counts are modeling choices, documented as such.
+
+## Reading the code
+
+`src/i8080_python/` has one mixin per group of Intel's instruction-set
+chapter: `_transfer.py`, `_arithmetic.py`, `_logical.py`, `_branch.py`,
+`_machine.py` (stack, I/O, machine control). `_dispatch.py` holds one explicit
+if-chain over all 256 bytes, and every handler's docstring starts with its
+Intel mnemonic, so `grep -n "DAA" src/` finds the code.
+`tests/test_readability.py` enforces that the way the oracles enforce
+correctness.
+
+## Reproducing the certification
+
+```text
+python -m pip install -e ".[dev]"
+python scripts/fetch_exercisers.py          # pinned by SHA-256; --include-cputest is opt-in
+python -m pytest -q                         # rungs 1, 2, 4 (and 5 if the trace exists)
+python -m validation.cpm tests/exercisers/8080EXM.COM   # rung 3; use PyPy
+python scripts/mame_trace.py                # MAME 0.285 + invaders ROM set
+python -m validation.mame_lockstep tests/mame_traces/run60/error.log   # rung 5
+```
+
+CI runs rungs 1, 2, and 4 on every push (CPython 3.12-3.14, PyPy 3.11) and
+8080EXM weekly under PyPy.
 
 ## The chip and the boards
 
 The Intel 8080 (1974) was replaced within months by the **8080A**, a corrected
-mask with the same instruction set; the boards below carry the 8080A or a
-second-source of it. The most widely emulated user is Space Invaders:
+mask with the same instruction set. The boards below carry the 8080A or a
+second source of it. The most widely emulated user is Space Invaders:
 
 - **Taito 8080 boards** (1978 onward): Space Invaders, Space Invaders Part II,
   Lunar Rescue, Space Chaser, Balloon Bomber, Polaris, Indian Battle. MAME
@@ -55,28 +131,10 @@ documents mark each place where they diverge rather than modeling the 8085:
 | States | e.g. MOV r,r 5, CALL 17, Jcc always 10, XTHL 18 | MOV r,r 4, CALL 18, Jcc 7/10, XTHL 16; many others differ |
 | Interrupts | INT with a bus-supplied instruction | plus TRAP, RST 5.5/6.5/7.5 |
 
-The intended 8080/8080A/8085 pointers and sources are in
-[docs/start-here.md](docs/start-here.md). The original non-A 8080 is out of
-scope; its differences are electrical and timing-related, not architectural
-(see the same page).
-
-## Embedding contract (planned)
-
-Identical in shape to z80-python. A machine subclasses the CPU and supplies its
-memory and port spaces; `step()` executes one instruction or one accepted
-lifecycle boundary and returns its documented state count:
-
-```python
-class Machine(I8080CPU):
-    def read_byte(self, addr): ...
-    def write_byte(self, addr, value): ...
-    def read_port(self, port): ...  # 8-bit port number
-    def write_port(self, port, value): ...
-```
-
-Interrupts are requested between steps with the instruction byte the board
-puts on the bus (`request_interrupt(0xCF)` for Space Invaders' `RST 1`),
-never by mutating PC or SP.
+AMD's 9080A/8080A second sources clear AC on `ANA` and fail the Intel CRCs;
+the core models Intel. The original non-A 8080 is out of scope; its
+differences are electrical and timing-related, not architectural (see
+[docs/start-here.md](docs/start-here.md)).
 
 ## Documents
 
@@ -84,7 +142,7 @@ See [docs/README.md](docs/README.md) for the index and the reading order.
 
 ## License
 
-MIT (this repository's own documents and scripts). The exercisers, MAME, and
-ROM sets are external and retain their own licenses; none is bundled. The
-fetch script downloads GPL-2.0 exerciser programs into an ignored directory
-and refuses to fetch the one proprietary program unless asked.
+MIT (this repository's code, documents, and scripts). The exercisers, MAME,
+and ROM sets are external and keep their own licenses; none is bundled. The
+fetch script downloads the GPL-2.0 exerciser programs into an ignored
+directory and fetches the one proprietary program only when asked.

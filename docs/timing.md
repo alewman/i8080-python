@@ -102,23 +102,40 @@ and the INT line stays asserted until the CPU acknowledges it, at which point
 the vector is formed from the counter **at acknowledge time**. Two facts follow
 for a host:
 
-- If the program has interrupts disabled when the flip-flop sets, the request
-  waits; it is accepted after the next `EI` (plus one instruction). The MAME
-  trace shows the game's very first interrupt being accepted on line 63 of
-  frame 9 with vector `RST 2`, because a request from line 224 of an earlier
-  frame was still pending when the boot code executed `EI`, and 64V was set at
-  line 63 (counter 0x5F).
+- Once INT is asserted, the request waits through the EI delay and is taken
+  after the next `EI` plus one instruction. The MAME trace shows the game's
+  very first interrupt accepted on line 63 of frame 9 with vector `RST 2`:
+  a request raised at an earlier trigger was still pending when the boot
+  code executed `EI`, and 64V was set at line 63 (counter 0x5F). Whether a
+  trigger raises INT at all while INTE is low is the refinement below: in
+  MAME's model it does only before the program's first INTE edge.
 - After that, acceptances alternate at lines 96 and 224 as long as the
   handlers re-enable interrupts before the next trigger, which the game's do.
 
 A host therefore needs: a state counter it advances by each `step()`'s return
 value, a comparison against 12,288 and 28,672 within the 33,536-state frame,
 `request_interrupt(0xCF)` / `request_interrupt(0xD7)` at those points, and
-the level semantics above (a pending request is not lost if INTE is clear).
+the level semantics above (an asserted request is not lost while the CPU
+holds it off).
 The MAME run in [mame-oracle.md](mame-oracle.md) confirmed, over 60 frames,
 handler entry at PC 0x0008 on beam line 96 and PC 0x0010 on beam line 224,
 with consecutive same-vector acceptances 33,536 or 33,537 `totalcycles` apart
 (the odd state is instruction-boundary rounding).
+
+Two refinements came out of the lockstep (`validation/mame_lockstep.py`,
+[validation.md](validation.md)); neither concerns the CPU:
+
+- **MAME sees each trigger one state early.** MAME truncates `1e18 / clock`
+  to whole attoseconds, so a 128-state line is 128 as longer than a
+  scanline, and its scheduler gives the CPU `floor(delta / attoseconds per
+  cycle)` cycles per timeslice. A trigger at a line's start therefore lands
+  on the first boundary at or after (whole-number state - 1). A host that
+  compares against MAME must keep time the same way.
+- **"Level-held" is the board's INTE copy.** At each trigger MAME's board
+  asserts INT only if its copy of the CPU's INTE output is high, and clears
+  INT otherwise. The copy starts high and follows only INTE *edges*, which is
+  why the boot code's first EI meets a request raised frames earlier. Once
+  the game is running, a trigger that finds INTE low is dropped, not held.
 
 ### The rest of the board, for the harness only
 
@@ -129,7 +146,11 @@ does not model any of it, but the MAME lockstep host in
 - Memory: 8 KiB ROM at 0x0000-0x1FFF (`invaders.h`, `.g`, `.f`, `.e`, 2 KiB
   each, in that order), 8 KiB RAM at 0x2000-0x3FFF (0x2000-0x23FF work RAM,
   0x2400-0x3FFF the 256x224 one-bit frame buffer), address bus masked to 15
-  bits so 0x4000-0x7FFF mirrors 0x0000-0x3FFF. Writes to ROM are ignored.
+  bits. The RAM mirrors at 0x6000-0x7FFF; 0x4000-0x5FFF is an unpopulated
+  ROM range (`main_map` maps it as ROM with nothing loaded; it reads 0 in
+  MAME). Writes to ROM are ignored. (An earlier revision of this page said
+  0x4000-0x7FFF mirrors 0x0000-0x3FFF, which `main_map` contradicts;
+  `invaders` touches neither range in the 60-frame run.)
 - Ports: `IN 0`, `IN 1`, `IN 2` are switches and controls; `IN 3` reads the
   MB14241 shift register; `OUT 2` sets the shift count, `OUT 4` loads shift
   data, `OUT 3` and `OUT 5` drive sound latches, `OUT 6` kicks a watchdog that
