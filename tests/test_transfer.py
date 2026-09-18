@@ -8,12 +8,13 @@ from conftest import machine_with
 REGISTERS = ("b", "c", "d", "e", "h", "l", None, "a")  # index 6 is M
 
 
-@pytest.mark.parametrize("dest", range(8))
-@pytest.mark.parametrize("src", range(8))
-def test_mov_every_pair(dest: int, src: int) -> None:
-    opcode = 0x40 | (dest << 3) | src
-    if opcode == 0x76:
-        pytest.skip("MOV M,M is HLT (test_machine.py)")
+#: Every MOV encoding; 0x76 (MOV M,M) is HLT and is tested in test_machine.py.
+MOV_OPCODES = [opcode for opcode in range(0x40, 0x80) if opcode != 0x76]
+
+
+@pytest.mark.parametrize("opcode", MOV_OPCODES, ids=lambda op: f"{op:02X}")
+def test_mov_every_pair(opcode: int) -> None:
+    dest, src = (opcode >> 3) & 0x07, opcode & 0x07
     cpu = machine_with([opcode], b=0x11, c=0x22, d=0x33, e=0x44, h=0x20, l=0x10, a=0x77)
     cpu.memory[0x2010] = 0x99
     source_value = 0x99 if src == 6 else getattr(cpu, REGISTERS[src])
