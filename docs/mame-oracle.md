@@ -125,11 +125,13 @@ same-vector acceptances were 33,536 or 33,537 states apart.
    2 KiB ROMs read straight out of `invaders.zip` (`9316b-0869_m739h.h1` at
    0x0000, `9316b-0856_m739g.g1` at 0x0800, `9316b-0855_m739f.f1` at 0x1000,
    `9316b-0854_m739e.e1` at 0x1800, per MAME's `ROM_LOAD` lines), 8 KiB RAM,
-   a 15-bit address mask, the MB14241 shifter on ports 2/3/4, inputs idle
-   (`IN 0`, `IN 1`, `IN 2` return the values MAME's default DIP/switch
-   settings produce; capture them from the trace's first `IN` results rather
-   than guessing), and the two interrupts at state offsets 12,288 and 28,672
-   of a 33,536-state frame with a level-held request.
+   a 15-bit address mask, the MB14241 shifter on ports 2/3/4, and inputs
+   idle: `IN 0` = 0x08, `IN 1` = 0x09, `IN 2` = 0x00 (MAME's default
+   switches, restated from the `invaders` input ports). Add the two
+   interrupts at lines 96 and 224, with the two refinements in
+   [timing.md](timing.md): trigger times kept in MAME's attoseconds, and the
+   board's INTE copy. `validation/mame_lockstep.py` is that host, and
+   `scripts/mame_trace.py` runs the recipe above.
 2. Start from RESET: PC 0, all registers 0, SP 0 (MAME's first line).
 3. For each `error.log` line after `Soft reset`: compare `pc`, `a`, `b`, `c`,
    `d`, `e`, `h`, `l`, `sp` exactly; compare `f` as `(f | 0x02) & 0xD7`

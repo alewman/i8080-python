@@ -20,6 +20,20 @@ test that includes it passes on real chips and fails on any core that gets it
 wrong; the CRC does not say which formulation is right, only that the
 formulation below is one that produces the hardware value.
 
+## Status in this core (certified at `6c08ccd`)
+
+The core implements every rule on this page as written. At `6c08ccd`, all 25
+8080EXM groups print the hardware CRCs ([validation.md](validation.md)). So
+every **hardware-captured** row below, including the fixed flag bits, all AC
+rules, and the DAA formulation, now holds for this code, not only for the
+emulators the page first cited. Nothing that was `[unverified]` has gained a
+hardware oracle. The undocumented opcodes, RESET's effect on the other
+registers, and multi-byte INTA injection stay marked. The core's choices for
+them are stated in the rows, and unit tests pin them so that any change is
+deliberate. The two lifecycle modeling choices the manuals leave open, the EI
+delay's handling of consecutive EIs and the halt idle count, follow MAME
+0.285 and are named in `src/i8080_python/_machine.py` and `cpu.py`.
+
 ## The flag byte
 
 **Bits 5 and 3 read 0, bit 1 reads 1, always.** Documented (`[ALP 1-14]`:
@@ -98,12 +112,12 @@ wrong in a table-driven decoder.
 | --- | --- | --- |
 | PC during interrupt acknowledge | not incremented; the pushed return address is the interrupted instruction's address | documented (`[UM ch. 2]`); MAME implements it by fetching the vector outside `read_op` |
 | INTE on acceptance | cleared | documented |
-| `EI` delay | enabled after the next instruction completes | documented (`[UM ch. 4, EI]`); MAME `m_after_ei = 2` |
-| `HLT` then interrupt | pushed return address is the instruction after `HLT` | documented (`[ALP, HLT]`: PC holds the next sequential instruction); MAME models it by rewinding PC on `HLT` and advancing on wake, which is observably the same |
+| `EI` delay | enabled after the next instruction completes; each `EI` re-arms it, so `EI; EI; X` accepts only after X | documented (`[UM ch. 4, EI]`); MAME `m_after_ei = 2`; this core agrees with MAME over 103 `EI`s and 102 acceptances in the `invaders` lockstep (emulator-derived) |
+| `HLT` then interrupt | pushed return address is the instruction after `HLT` | documented (`[ALP, HLT]`: PC holds the next sequential instruction); MAME models it by rewinding PC on `HLT` and advancing on wake, which is observably the same. `invaders` never executes `HLT`, so the lockstep does not cover this; `tests/test_lifecycle.py` does, from the manual |
 | `HLT` with INTE clear | only RESET exits | documented (`[UM ch. 2, "Halt Sequences"]`) |
-| RESET | PC = 0, INTE = 0, halt cleared; other registers unspecified | documented (`[UM ch. 2, "Start-up"]`); `[unverified]` what real chips leave in A..L, SP; a core should preserve them and say so |
-| Multi-byte instruction supplied on INTA | supported by the 8228 for `CALL`; each operand byte is fetched with INTA and PC is not advanced | documented (`[UM ch. 5, 8228]`); out of scope for the arcade boards; no oracle `[unverified]` |
-| `IN`/`OUT` address bus | port number on A0-A7 and A8-A15 | documented (`[ALP 1-14]`); a host that decodes 16-bit port addresses can rely on it |
+| RESET | PC = 0, INTE = 0, halt cleared; other registers unspecified | documented (`[UM ch. 2, "Start-up"]`); `[unverified]` what real chips leave in A..L, SP. This core preserves them (`tests/test_lifecycle.py`) |
+| Multi-byte instruction supplied on INTA | supported by the 8228 for `CALL`; each operand byte is fetched with INTA and PC is not advanced | documented (`[UM ch. 5, 8228]`); out of scope for the arcade boards; no oracle `[unverified]`. This core refuses it (`request_interrupt` raises `NotImplementedError`) |
+| `IN`/`OUT` address bus | port number on A0-A7 and A8-A15 | documented (`[ALP 1-14]`). This core hands the host the 8-bit port number; a host that decodes the full bus rebuilds `(port << 8) \| port` |
 
 ## Where the truth lives
 

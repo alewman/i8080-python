@@ -1,12 +1,82 @@
-# Validation: the oracles available for an 8080 core
+# Validation: evidence, certification record, and the oracles
 
-## Claim this repository can support today
+## Claim
 
-None. There is no core. This page records, before any code exists, every
-oracle found for the Intel 8080A, where its expected values came from, its
-license, its pinned revision and hashes, what it covers, and what it cannot
-cover, so that the session that writes the core inherits the evidence plan
-rather than inventing one.
+`i8080-python` is an **8080EXM-certified pure-Python Intel 8080A instruction
+core**. Its instruction results, including all eight bits of the flag byte,
+are **verified against real 8080A hardware** wherever the hardware-captured
+8080EXM CRCs reach. Its state counts, branches, stack, I/O, and interrupt
+lifecycle are checked against Intel's manuals and **cross-checked against an
+emulator**: MAME 0.285 in lockstep over 60 frames of Space Invaders, and
+superzazu/8080's state totals for every exerciser. The claim does not cover
+per-state bus timing (the core returns totals), the 8228's multi-byte
+interrupt injection (refused), HOLD, or any machine beyond the CPU.
+
+## Certification record: commit `6c08ccd` (2026-09-18)
+
+Reproduced on Linux x86_64 under CPython 3.14.4 and PyPy 7.3.20 (Python
+3.11.13), with the exercisers at the SHA-256 values in
+[Pinned artifacts](#pinned-artifacts), MAME 0.285 at `/usr/games/mame`, and
+the non-merged `invaders.zip` read in place. Every figure below was produced
+at `6c08ccd` from a clean tree.
+
+| Rung | Gate | Tier | Result | CPython 3.14.4 | PyPy 7.3.20 |
+| --- | --- | --- | --- | ---: | ---: |
+| 1, 2, 4 | `pytest -q`: 256-opcode state grid, flag-effect classes, ALU sweep against an independent formulation, worked examples, disassembler, trace, readability contract, 8080PRE, TST8080, 18 lifecycle tests, MAME lockstep | specification; self-checks; emulator-derived | 1,315 passed | 3.5 s | 5.1 s |
+| 2 | `8080PRE.COM` | specification-derived | `8080 Preliminary tests complete`; 1,058 instructions, 7,787 states | < 0.1 s | < 0.1 s |
+| 2 | `TST8080.COM` | specification-derived | `CPU IS OPERATIONAL`; 646 instructions, 4,874 states | < 0.1 s | < 0.1 s |
+| 3 | `8080EXM.COM` | **hardware-captured** | **25 of 25 CRCs match the hardware table**, `Tests complete`; 2,919,050,143 instructions, 23,803,375,621 states | not recorded (see below) | 160.1 s |
+| 3 | `CPUTEST.COM` (opt-in) | specification-derived | `CPU TESTS OK`; 33,970,946 instructions, 255,649,733 states | 22.5 s | 3.0 s |
+| 5 | MAME 0.285 `invaders` lockstep, 60 frames | emulator-derived | 230,313 lines and 102 interrupt acceptances identical: `pc a b c d e h l sp`, F masked to its five flags, cumulative states = `totalcycles` | 2.5 s | 1.0 s |
+
+**Interpreter for rung 3.** PyPy is the interpreter for 8080EXM: 2.9
+billion instructions at about 18 million per second. A CPython 3.14.4 run of
+8080EXM at `6c08ccd` was still inside its third group after 26 minutes when
+this record was written, so its time is not recorded here. CPython's
+correctness on the same code is covered by every other row. Later commits
+change documentation only, including one docstring in `_core.py`.
+
+**State totals against superzazu/8080.** This host traps BDOS and warm boot
+outside the CPU for free. superzazu's harness (`i8080_tests.c` at `274ffd7`)
+runs a real `OUT 1,A; RET` at 0x0005 (20 states per BDOS call) and `OUT 0,A`
+at 0x0000 (10 states, once). Converted to that accounting, every total above
+equals superzazu's published number exactly: 7,817, 4,924, 23,803,381,171,
+and 255,653,383. The conversion is computed in `validation/cpm.py`
+(`CPMResult.superzazu_states`) and asserted by `tests/test_exercisers.py`.
+superzazu is emulator-derived, so this is a detector agreeing, not a judge.
+
+**The CRCs are checked by the harness, not taken from the program.**
+`validation.cpm.failures()` parses each printed `crc is:` value and compares
+it with the 25-entry hardware table below, so a core that corrupted the
+program's own compiled-in table could not pass.
+
+**What the MAME run exercised.** The 60 frames execute 56 distinct opcodes,
+including `EI` 103 times, `IN` 102 times, and `OUT` 51 times. They execute
+no `HLT`, `DI`, `DAA`, `XTHL`, or undocumented byte. So the lockstep
+cross-checks interrupt acceptance timing, the EI delay, and the vector and
+return-address mechanics on real code. HLT wakeup and RESET rest on the
+manual-cited unit tests alone (rung 4).
+
+**A longer run, beyond the rung.** `python scripts/mame_trace.py --seconds
+30 --out DIR` into the attract mode's demo game, then the same lockstep,
+matched **6,944,603 lines and 3,556 interrupt acceptances** with no
+divergence (26.5 s under PyPy at `6c08ccd`; the 328 MB log is not kept).
+That run executes 118 distinct opcodes, 54 of Intel's 78 mnemonics. It
+never executes `ACI ADC CC CM CMC CP CPE CPO DAA DI HLT JP JPE JPO RAL RM RP
+RPE RPO SBB SPHL STAX XRI`, or `RST` from memory; `RST` runs only as the
+injected interrupt byte. Those rest on rungs 1 to 4 and, for their register
+and flag results, on 8080EXM.
+
+**One divergence on the way, in the harness.** The first lockstep attempt
+matched 55,478 lines and then diverged at `error.log` line 55,480: MAME took
+an interrupt at state 435,967, one state before the whole-number trigger at
+13 x 33,536. The cause was MAME's clock arithmetic, not the CPU. MAME
+truncates `1e18 / clock` to whole attoseconds, which makes a 128-state line
+128 as longer than a scanline. Its scheduler then hands the CPU
+`floor(delta / attoseconds_per_cycle)` cycles per timeslice, so every
+trigger is seen one state early. The host now keeps board time in
+attoseconds as MAME does (`validation/mame_lockstep.py`), and no core change
+was needed.
 
 ## The tier rule
 
@@ -178,35 +248,35 @@ another emulator (its `F` omits the fixed bit 1 internally, for one). A
 divergence from MAME is a lead to chase against the datasheet and the CRCs,
 not a bug by definition.
 
-## Harness plan
+## Harness
 
-Mirror z80-python's `docs/conformance.md` so that its tooling shape carries
-over:
+Built as planned before the core existed, in z80-python's shape:
 
-- **`flat` host**: 64 KiB RAM, `IN` returns a fixed byte, `OUT` discards.
-- **`cpm-minimal` host**: `flat` plus two traps checked before every step,
-  outside the CPU and producing no trace record: PC == 0x0000 ends the run;
-  PC == 0x0005 performs BDOS function C: 0 ends the run, 2 appends E to the
-  output, 9 appends bytes from DE up to `$`; then pops the return address
-  into PC. Load the `.COM` at 0x0100, set PC = 0x0100, SP = 0xF000, and the
-  word at 0x0006 to 0xF000 because the exercisers execute `LHLD 6; SPHL`
-  before their first BDOS call, exactly as `validation/zex.py` does for ZEX.
-- **Pass criteria**: `8080PRE`: output contains `8080 Preliminary tests
-  complete`; `TST8080`: contains `CPU IS OPERATIONAL` and not `CPU HAS
-  FAILED`; `8080EXM`: 25 lines containing `PASS!`, none containing `ERROR`,
-  and `Tests complete`; `CPUTEST`: contains `CPU TESTS OK`.
-- **Budgets**: instruction budgets so a wrong core cannot spin forever
-  (10^5 for PRE and TST8080, 10^9 for CPUTEST, 10^11 for EXM).
-- **Trace schema**: z80-python's version-1 JSON Lines record shape with an
-  8080 state object (`a f b c d e h l sp pc inte halted ei_delay
-  interrupt_pending`) and boundary kinds `instruction`, `halt_idle`,
-  `reset`, `interrupt`; a `cpm-minimal` manifest for each exerciser; and a
-  `mame` comparison mode that reads the `error.log` line format directly and
-  compares `pc a f b c d e h l sp` with F masked to the five real flags and
-  the state delta to `totalcycles` (see [mame-oracle.md](mame-oracle.md)).
-- **Report**: state the pinned exerciser hashes, the MAME version, the
-  interpreter, wall-clock times, and the exact output on failure. A claim
-  without those is not reproducible.
+- **`cpm-minimal` host** (`validation/cpm.py`): 64 KiB RAM; the `.COM` at
+  0x0100, PC = 0x0100, SP = 0xF000, and the word at 0x0006 = 0xF000 (the
+  exercisers run `LHLD 6; SPHL` before their first BDOS call). Two traps are
+  checked before every step, outside the CPU: PC == 0x0000 ends the run, and
+  PC == 0x0005 performs BDOS function C (0 ends the run, 2 prints E, 9 prints
+  from DE up to `$`) and then pops the return address. Any `IN` or `OUT` is
+  an error.
+- **Pass criteria**: `8080PRE`: `8080 Preliminary tests complete`;
+  `TST8080`: `CPU IS OPERATIONAL` and no `CPU HAS FAILED`; `8080EXM`: the 25
+  printed CRCs equal the hardware table in order, `Tests complete`, no
+  `ERROR`; `CPUTEST`: `CPU TESTS OK`.
+- **Budgets**: 10^5 instructions for PRE and TST8080, 10^9 for CPUTEST,
+  10^11 for EXM. An overrun reports the last PC and the output so far.
+- **Trace**: `python -m validation.cpm PROGRAM --trace FILE` writes the
+  JSON Lines conformance trace in [trace-schema.md](trace-schema.md), with
+  the traps running between records.
+- **MAME lockstep** (`validation/mame_lockstep.py`,
+  `scripts/mame_trace.py`): the `invaders` host restates MAME 0.285's Midway
+  board. The ROM is read from the zip in place. The board's interrupt
+  generator triggers at lines 96 and 224 and asserts INT only if its copy of
+  the INTE pin is high; that copy starts high and follows INTE edges. The
+  vector comes from 64V at acknowledge time, and board time is kept in
+  MAME's attoseconds. Two MAME runs produced the same `error.log` (SHA-256
+  `5096a63f49030e87f9db94fcf1095c5a38af37d26e9d30cb9abf2d2b2084e330`).
+  [mame-oracle.md](mame-oracle.md) has the recipe.
 
 ## Sources and licenses
 

@@ -145,9 +145,9 @@ class CoreMixin:
         """Apply RESET while the host holds it asserted.
 
         RESET clears PC, INTE, and the halt state and defines nothing else
-        [UM ch. 2, "Start-up"], so every other register is left as it was. The
-        3 states are the minimum RESET pulse the manual requires, a modeling
-        choice: RESET is not an instruction and has no state count of its own.
+        [UM ch. 2, "Start-up"], so every other register is left as it was.
+        RESET is not an instruction and has no state count of its own; the 3
+        states are a modeling choice, the count z80-python's RESET step uses.
         """
         self.pc = 0
         self.inte = False
