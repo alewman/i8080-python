@@ -1,6 +1,6 @@
 # i8080-python
 
-A readable, dependency-free Python 3.12+ Intel 8080A **instruction core**, in
+A readable, dependency-free Intel 8080A **instruction core**, in
 the shape of [z80-python](https://github.com/alewman/z80-python) and
 [6502-python](https://github.com/alewman/6502-python). The host owns memory
 and the 256 I/O ports and supplies `read_byte`, `write_byte`, `read_port`,

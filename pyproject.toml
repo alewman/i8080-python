@@ -7,7 +7,8 @@ name = "i8080-python"
 version = "0.1.0.dev0"
 description = "Readable, pure-Python Intel 8080A instruction-core reference implementation"
 readme = "README.md"
-requires-python = ">=3.12"
+# The floor is the newest Python PyPy supports (3.11 as of PyPy 7.3.23); raise it when PyPy does.
+requires-python = ">=3.11"
 license = { file = "LICENSE" }
 authors = [{ name = "alewman" }]
 classifiers = [
@@ -37,7 +38,7 @@ packages = ["src/i8080_python"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py312"
+target-version = "py311"
 exclude = [".git", ".pytest_cache", "tests/exercisers", "tests/mame_traces"]
 
 [tool.ruff.lint]
