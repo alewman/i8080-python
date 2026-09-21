@@ -11,47 +11,18 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, fields
-from enum import Enum
 from typing import Protocol, TextIO
 
-from i8080_python.disasm import ByteReader, Instruction, disassemble, disassemble_bytes
+from i8080_python.debug import BoundaryKind, DebugSession, StepRecord, next_boundary
+from i8080_python.disasm import ByteReader, disassemble, disassemble_bytes
 from i8080_python.state import CPUState
 
 TRACE_SCHEMA_VERSION = 1
 STATE_FIELDS = tuple(field.name for field in fields(CPUState))
 _RECORD_KEYS = {"version", "sequence", "kind", "states", "instruction", "before", "after"}
-
-
-class BoundaryKind(Enum):
-    """What one step() did."""
-
-    INSTRUCTION = "instruction"
-    HALT_IDLE = "halt_idle"
-    RESET = "reset"
-    INTERRUPT = "interrupt"
-
-
-def boundary_kind(state: CPUState) -> BoundaryKind:
-    """The kind of the next boundary, decided from the state before it, as step() decides it."""
-    if state.reset_pending:
-        return BoundaryKind.RESET
-    if state.interrupt_vector is not None and state.inte and state.ei_delay == 0:
-        return BoundaryKind.INTERRUPT
-    if state.halted:
-        return BoundaryKind.HALT_IDLE
-    return BoundaryKind.INSTRUCTION
-
-
-@dataclass(frozen=True, slots=True)
-class StepRecord:
-    """Before/after evidence for one boundary."""
-
-    sequence: int
-    kind: BoundaryKind
-    states: int
-    instruction: Instruction | None
-    before: CPUState
-    after: CPUState
+#: ``accesses`` is optional: a record that carries it came from a session that
+#: tracked the bus, and two records are compared on it only when both have it.
+_OPTIONAL_KEYS = {"accesses"}
 
 
 class Traceable(Protocol):
@@ -81,16 +52,30 @@ def trace_steps(
         if between is not None and not between():
             return
         before = cpu.capture_state()
-        kind = boundary_kind(before)
+        kind = next_boundary(before)
         instruction = disassemble(peek, before.pc) if kind is BoundaryKind.INSTRUCTION else None
         states = cpu.step()
-        yield StepRecord(sequence, kind, states, instruction, before, cpu.capture_state())
+        yield StepRecord(sequence, kind, before, cpu.capture_state(), states, instruction)
+
+
+def iter_session_steps(session: DebugSession, *, max_steps: int) -> Iterator[StepRecord]:
+    """Yield records from a :class:`~i8080_python.debug.DebugSession`, one per boundary.
+
+    Use this instead of :func:`trace_steps` when the trace should carry the bus
+    accesses each step made: a session created with ``track_accesses=True``
+    records them, and :func:`write_trace` then writes the optional ``accesses``
+    array.
+    """
+    if type(max_steps) is not int or max_steps <= 0:
+        raise ValueError("max_steps must be a positive integer")
+    for _ in range(max_steps):
+        yield session.step()
 
 
 def record_to_dict(record: StepRecord) -> dict[str, object]:
     """The JSON-compatible form of one record."""
     instruction = record.instruction
-    return {
+    value: dict[str, object] = {
         "version": TRACE_SCHEMA_VERSION,
         "sequence": record.sequence,
         "kind": record.kind.value,
@@ -106,6 +91,9 @@ def record_to_dict(record: StepRecord) -> dict[str, object]:
         "before": {name: getattr(record.before, name) for name in STATE_FIELDS},
         "after": {name: getattr(record.after, name) for name in STATE_FIELDS},
     }
+    if record.accesses is not None:
+        value["accesses"] = [[kind, address, data] for kind, address, data in record.accesses]
+    return value
 
 
 def record_from_dict(value: object) -> StepRecord:
@@ -114,8 +102,14 @@ def record_from_dict(value: object) -> StepRecord:
     A producer in another language may omit ``mnemonic`` and ``operands``; they
     are then decoded from ``data`` with this package's disassembler.
     """
-    if not isinstance(value, dict) or set(value) != _RECORD_KEYS:
-        raise ValueError(f"a record must be an object with exactly the keys {sorted(_RECORD_KEYS)}")
+    if (
+        not isinstance(value, dict)
+        or not _RECORD_KEYS <= set(value) <= _RECORD_KEYS | _OPTIONAL_KEYS
+    ):
+        raise ValueError(
+            f"a record must be an object with the keys {sorted(_RECORD_KEYS)} "
+            f"and optionally {sorted(_OPTIONAL_KEYS)}"
+        )
     if value["version"] != TRACE_SCHEMA_VERSION:
         raise ValueError(f"unsupported trace schema version: {value['version']!r}")
     for name in ("before", "after"):
@@ -125,7 +119,7 @@ def record_from_dict(value: object) -> StepRecord:
     before = CPUState(**value["before"])
     after = CPUState(**value["after"])
     kind = BoundaryKind(value["kind"])
-    if kind is not boundary_kind(before):
+    if kind is not next_boundary(before):
         raise ValueError(f"kind {kind.value!r} contradicts the before state")
     states = value["states"]
     if type(states) is not int or states <= 0:
@@ -142,7 +136,10 @@ def record_from_dict(value: object) -> StepRecord:
         ):
             raise ValueError("instruction mnemonic and operands do not match its data")
         instruction = decoded
-    return StepRecord(value["sequence"], kind, states, instruction, before, after)
+    accesses = value.get("accesses")
+    if accesses is not None:
+        accesses = tuple(tuple(access) for access in accesses)
+    return StepRecord(value["sequence"], kind, before, after, states, instruction, accesses)
 
 
 def write_trace(records: Iterable[StepRecord], stream: TextIO) -> int:
@@ -204,6 +201,11 @@ def first_trace_divergence(
         if a is None or b is None:
             return TraceDivergence(index, "record", a and "present", b and "present")
         flat_a, flat_b = _flatten(a), _flatten(b)
+        # Accesses are compared only when both producers recorded them; a trace
+        # written without tracking says nothing about the bus either way.
+        if a.accesses is not None and b.accesses is not None:
+            flat_a["accesses"] = a.accesses
+            flat_b["accesses"] = b.accesses
         for path, value in flat_a.items():
             if flat_b[path] != value:
                 return TraceDivergence(index, path, value, flat_b[path])
@@ -212,11 +214,9 @@ def first_trace_divergence(
 
 __all__ = [
     "TRACE_SCHEMA_VERSION",
-    "BoundaryKind",
-    "StepRecord",
     "TraceDivergence",
-    "boundary_kind",
     "first_trace_divergence",
+    "iter_session_steps",
     "read_trace",
     "record_from_dict",
     "record_to_dict",

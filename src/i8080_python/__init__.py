@@ -1,5 +1,6 @@
 """Readable, pure-Python Intel 8080A instruction-core reference implementation."""
 
+from i8080_python.console import CommandDebugger, CommandError, CommandResult
 from i8080_python.cpu import (
     FLAG_AC,
     FLAG_CY,
@@ -14,6 +15,16 @@ from i8080_python.cpu import (
     ReadByte,
     WriteByte,
 )
+from i8080_python.debug import (
+    Access,
+    BoundaryKind,
+    DebugSession,
+    DebugTarget,
+    RunResult,
+    StepRecord,
+    StopReason,
+    next_boundary,
+)
 from i8080_python.disasm import (
     ByteReader,
     Instruction,
@@ -23,11 +34,12 @@ from i8080_python.disasm import (
 )
 from i8080_python.trace import (
     TRACE_SCHEMA_VERSION,
-    BoundaryKind,
-    StepRecord,
     TraceDivergence,
     first_trace_divergence,
+    iter_session_steps,
     read_trace,
+    record_from_dict,
+    record_to_dict,
     trace_steps,
     write_trace,
 )
@@ -42,20 +54,32 @@ __all__ = [
     "HALT_IDLE_STATES",
     "I8080CPU",
     "TRACE_SCHEMA_VERSION",
+    "Access",
     "BoundaryKind",
     "ByteReader",
     "CPUState",
+    "CommandDebugger",
+    "CommandError",
+    "CommandResult",
+    "DebugSession",
+    "DebugTarget",
     "Flags",
     "Instruction",
     "ReadByte",
+    "RunResult",
     "StepRecord",
+    "StopReason",
     "TraceDivergence",
     "WriteByte",
     "disassemble",
     "disassemble_bytes",
     "first_trace_divergence",
     "instruction_length",
+    "iter_session_steps",
+    "next_boundary",
     "read_trace",
+    "record_from_dict",
+    "record_to_dict",
     "trace_steps",
     "write_trace",
 ]

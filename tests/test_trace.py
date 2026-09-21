@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import io
 import json
+from dataclasses import replace
 
 import pytest
 from conftest import machine_with
 
+from i8080_python.debug import BoundaryKind, DebugSession
 from i8080_python.trace import (
-    BoundaryKind,
     first_trace_divergence,
+    iter_session_steps,
     read_trace,
     trace_steps,
     write_trace,
@@ -82,3 +84,35 @@ def test_reader_rejects_a_kind_that_contradicts_its_state() -> None:
     value["kind"] = "halt_idle"
     with pytest.raises(ValueError, match="contradicts"):
         list(read_trace(io.StringIO(json.dumps(value))))
+
+
+def test_a_session_trace_carries_the_bus_accesses() -> None:
+    cpu = machine_with(PROGRAM, sp=0x8000)
+    session = DebugSession(cpu, peek_byte=cpu.memory.__getitem__, track_accesses=True)
+    records = list(iter_session_steps(session, max_steps=2))
+    assert records[0].accesses == (("r", 0x0100, 0x3E), ("r", 0x0101, 0x2A))
+
+    stream = io.StringIO()
+    write_trace(records, stream)
+    assert json.loads(stream.getvalue().splitlines()[0])["accesses"] == [
+        ["r", 256, 62],
+        ["r", 257, 42],
+    ]
+    stream.seek(0)
+    assert list(read_trace(stream)) == records
+
+
+def test_accesses_are_compared_only_when_both_traces_have_them() -> None:
+    cpu = machine_with(PROGRAM, sp=0x8000)
+    session = DebugSession(cpu, peek_byte=cpu.memory.__getitem__, track_accesses=True)
+    tracked = list(iter_session_steps(session, max_steps=3))
+    untracked = _records(3)
+    # Same execution, one trace without bus records: no divergence.
+    assert first_trace_divergence(tracked, untracked) is None
+
+    wrong = [
+        replace(tracked[0], accesses=(("r", 0x0100, 0x00),)),
+        *tracked[1:],
+    ]
+    divergence = first_trace_divergence(tracked, wrong)
+    assert (divergence.index, divergence.path) == (0, "accesses")
