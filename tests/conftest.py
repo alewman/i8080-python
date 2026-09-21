@@ -8,26 +8,29 @@ from i8080_python import I8080CPU
 
 
 class Machine(I8080CPU):
-    """64 KiB RAM; IN returns ``port_values[port]`` (default 0xFF); OUT is recorded."""
+    """64 KiB RAM; IN returns ``port_values[port]`` (default 0xFF); OUT is recorded.
+
+    The bus is passed to the core, as every host does since 0.2.0; subclassing
+    is just a convenient place to keep the memory and the port log.
+    """
 
     def __init__(self) -> None:
-        super().__init__()
         self.memory = bytearray(0x10000)
         self.port_values: dict[int, int] = {}
         self.port_reads: list[int] = []
         self.port_writes: list[tuple[int, int]] = []
+        super().__init__(
+            self.memory.__getitem__,
+            self.memory.__setitem__,
+            read_port=self._in,
+            write_port=self._out,
+        )
 
-    def read_byte(self, addr: int) -> int:
-        return self.memory[addr & 0xFFFF]
-
-    def write_byte(self, addr: int, value: int) -> None:
-        self.memory[addr & 0xFFFF] = value & 0xFF
-
-    def read_port(self, port: int) -> int:
+    def _in(self, port: int) -> int:
         self.port_reads.append(port)
         return self.port_values.get(port, 0xFF)
 
-    def write_port(self, port: int, value: int) -> None:
+    def _out(self, port: int, value: int) -> None:
         self.port_writes.append((port, value))
 
     def load(self, address: int, *data: int) -> None:

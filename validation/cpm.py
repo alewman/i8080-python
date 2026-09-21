@@ -87,19 +87,18 @@ class CPMHost(I8080CPU):
     """``flat`` host (64 KiB RAM, no ports) that the CP/M traps drive."""
 
     def __init__(self) -> None:
-        super().__init__()
         self.memory = bytearray(0x10000)
+        super().__init__(
+            self.memory.__getitem__,
+            self.memory.__setitem__,
+            read_port=self._refuse_in,
+            write_port=self._refuse_out,
+        )
 
-    def read_byte(self, addr: int) -> int:
-        return self.memory[addr]
-
-    def write_byte(self, addr: int, value: int) -> None:
-        self.memory[addr] = value
-
-    def read_port(self, port: int) -> int:
+    def _refuse_in(self, port: int) -> int:
         raise CPMRunError(f"unexpected IN from port 0x{port:02X} at PC 0x{self.pc:04X}")
 
-    def write_port(self, port: int, value: int) -> None:
+    def _refuse_out(self, port: int, value: int) -> None:
         raise CPMRunError(f"unexpected OUT to port 0x{port:02X} at PC 0x{self.pc:04X}")
 
 

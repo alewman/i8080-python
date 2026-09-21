@@ -11,6 +11,8 @@ from i8080_python.cpu import (
     I8080CPU,
     CPUState,
     Flags,
+    ReadByte,
+    WriteByte,
 )
 from i8080_python.disasm import (
     ByteReader,
@@ -45,8 +47,10 @@ __all__ = [
     "CPUState",
     "Flags",
     "Instruction",
+    "ReadByte",
     "StepRecord",
     "TraceDivergence",
+    "WriteByte",
     "disassemble",
     "disassemble_bytes",
     "first_trace_divergence",
