@@ -6,7 +6,7 @@ logical, branch, and stack/I/O/machine control. This module is the stable
 import surface for ``I8080CPU`` and the flag masks.
 """
 
-from abc import ABC, abstractmethod
+from collections.abc import Callable
 
 from i8080_python._arithmetic import ArithmeticMixin
 from i8080_python._branch import BranchMixin
@@ -18,6 +18,11 @@ from i8080_python._machine import MachineMixin
 from i8080_python._transfer import TransferMixin
 from i8080_python.disasm import instruction_length
 from i8080_python.state import CPUState
+
+ReadByte = Callable[[int], int]
+WriteByte = Callable[[int, int], None]
+
+_BUS = ("read_byte", "write_byte", "read_port", "write_port")
 
 Flags.__module__ = __name__
 
@@ -32,7 +37,19 @@ __all__ = [
     "I8080CPU",
     "CPUState",
     "Flags",
+    "ReadByte",
+    "WriteByte",
 ]
+
+
+def _undriven_port(port: int) -> int:
+    """The default ``read_port``: no device drives the data bus, so it reads 0xFF."""
+    return 0xFF
+
+
+def _unconnected_port(port: int, value: int) -> None:
+    """The default ``write_port``: no device is listening, so the write goes nowhere."""
+
 
 #: States a halted CPU's step() consumes. The chip sits in its halt wait state
 #: and samples INT every clock, so any positive constant is a modeling choice;
@@ -49,15 +66,56 @@ class I8080CPU(
     BranchMixin,
     MachineMixin,
     CoreMixin,
-    ABC,
 ):
-    """Abstract 8080A instruction core with memory and I/O supplied by a host.
+    """An 8080A instruction core whose memory and I/O are callables from a host.
 
-    A new CPU has every register 0, F = 0x02 (its fixed bits), INTE clear, and
-    is not halted. The host owns memory and devices and subclasses this to
-    supply :meth:`read_byte`, :meth:`write_byte`, :meth:`read_port`, and
-    :meth:`write_port`.
+    ``read_byte(address)`` and ``write_byte(address, value)`` are the memory
+    bus; ``read_port(port)`` and ``write_port(port, value)`` the I/O bus, which
+    defaults to nothing connected: reads return 0xFF, writes are discarded.
+    The core passes a 16-bit address and an 8-bit value on the memory bus, and
+    the 8-bit port number on the I/O bus, so a flat host is two arguments::
+
+        memory = bytearray(0x10000)
+        cpu = I8080CPU(memory.__getitem__, memory.__setitem__)
+
+    The four callables are ordinary attributes and may be replaced later (the
+    debugger's access tracking does exactly that). A new CPU has every
+    register 0, F = 0x02 (its fixed bits), INTE clear, and is not halted.
     """
+
+    def __init__(
+        self,
+        read_byte: ReadByte,
+        write_byte: WriteByte,
+        *,
+        read_port: ReadByte | None = None,
+        write_port: WriteByte | None = None,
+    ) -> None:
+        if read_port is None:
+            read_port = _undriven_port
+        if write_port is None:
+            write_port = _unconnected_port
+        for name, bus in zip(_BUS, (read_byte, write_byte, read_port, write_port), strict=True):
+            if not callable(bus):
+                raise TypeError(f"{name} must be callable, not {type(bus).__name__}")
+        self.read_byte = read_byte
+        self.write_byte = write_byte
+        self.read_port = read_port
+        self.write_port = write_port
+        super().__init__()
+
+    def __init_subclass__(cls, **kwargs: object) -> None:
+        # Until 0.2.0 a host subclassed I8080CPU and defined the bus as methods.
+        # The instance attributes set in __init__ would silently shadow them, so
+        # refuse the old form when the class is defined, naming the new one.
+        super().__init_subclass__(**kwargs)
+        legacy = [name for name in _BUS if name in cls.__dict__]
+        if legacy:
+            raise TypeError(
+                f"{cls.__name__} defines {', '.join(legacy)} as methods; since 0.2.0 the "
+                "bus is passed in: I8080CPU(read_byte, write_byte, *, read_port=None, "
+                "write_port=None)"
+            )
 
     def step(self) -> int:
         """Advance one instruction or lifecycle boundary and return its state count.
@@ -160,23 +218,3 @@ class I8080CPU(
     def clear_interrupt(self) -> None:
         """Deassert INT before it has been acknowledged."""
         self._pending_interrupt = None
-
-    @abstractmethod
-    def read_byte(self, addr: int) -> int:
-        """Read one byte from the 16-bit memory space; return 0..255."""
-
-    @abstractmethod
-    def write_byte(self, addr: int, value: int) -> None:
-        """Write one byte (0..255) to the 16-bit memory space."""
-
-    @abstractmethod
-    def read_port(self, port: int) -> int:
-        """Read one byte from I/O port 0..255.
-
-        The chip also drives the port number on address lines A8-A15 [ALP 1-14];
-        a host that decodes the full bus sees ``(port << 8) | port``.
-        """
-
-    @abstractmethod
-    def write_port(self, port: int, value: int) -> None:
-        """Write one byte (0..255) to I/O port 0..255."""

@@ -98,7 +98,6 @@ class InvadersHost(I8080CPU):
     """The Midway ``invaders`` board as far as the CPU can observe it."""
 
     def __init__(self, rom: bytes) -> None:
-        super().__init__()
         if len(rom) != 0x2000:
             raise ValueError("invaders needs 8 KiB of ROM")
         self.rom = rom
@@ -106,6 +105,12 @@ class InvadersHost(I8080CPU):
         self.states = 0
         self.shift_data = 0
         self.shift_count = 0
+        super().__init__(
+            self._read_memory,
+            self._write_memory,
+            read_port=self._read_device,
+            write_port=self._write_device,
+        )
         # The board's copy of the INTE pin starts high and follows edges only.
         self.board_int_enable = True
         self._last_inte = self.inte
@@ -122,7 +127,7 @@ class InvadersHost(I8080CPU):
                 rom[address : address + 0x800] = archive.read(name)
         return cls(bytes(rom))
 
-    def read_byte(self, addr: int) -> int:
+    def _read_memory(self, addr: int) -> int:
         addr &= 0x7FFF
         if addr < 0x2000:
             return self.rom[addr]
@@ -132,20 +137,20 @@ class InvadersHost(I8080CPU):
             return 0
         return self.ram[addr - 0x6000]
 
-    def write_byte(self, addr: int, value: int) -> None:
+    def _write_memory(self, addr: int, value: int) -> None:
         addr &= 0x7FFF
         if 0x2000 <= addr < 0x4000:
             self.ram[addr - 0x2000] = value
         elif addr >= 0x6000:
             self.ram[addr - 0x6000] = value
 
-    def read_port(self, port: int) -> int:
+    def _read_device(self, port: int) -> int:
         port &= 0x07
         if port & 0x03 == 3:
             return (self.shift_data >> self.shift_count) & 0xFF
         return IDLE_INPUTS[port & 0x03]
 
-    def write_port(self, port: int, value: int) -> None:
+    def _write_device(self, port: int, value: int) -> None:
         port &= 0x07
         if port == 2:
             self.shift_count = ~value & 0x07

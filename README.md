@@ -3,8 +3,9 @@
 A readable, dependency-free Intel 8080A **instruction core**, in
 the shape of [z80-python](https://github.com/alewman/z80-python) and
 [6502-python](https://github.com/alewman/6502-python). The host owns memory
-and the 256 I/O ports and supplies `read_byte`, `write_byte`, `read_port`,
-`write_port`. The core owns registers, flags, instruction semantics, Intel's
+and the 256 I/O ports and passes them in as four callables, the embedding
+contract z80-python 0.4.0 and m6800-python share. The core owns registers,
+flags, instruction semantics, Intel's
 documented state counts, and the INT/INTE/HLT/RESET lifecycle at instruction
 boundaries. Every correctness claim is pinned to an external oracle whose tier
 is stated.
@@ -35,31 +36,30 @@ hashes, commands, and timings are in [docs/validation.md](docs/validation.md).
 
 ## Using it
 
+The memory bus is two callables, so a flat 64 KiB host is two arguments:
+
 ```python
 from i8080_python import I8080CPU
 
+memory = bytearray(0x10000)
+memory[0:2] = bytes((0x3E, 0x2A))  # MVI A,2AH
 
-class Machine(I8080CPU):
-    def __init__(self):
-        super().__init__()
-        self.memory = bytearray(0x10000)
-
-    def read_byte(self, addr):
-        return self.memory[addr]
-
-    def write_byte(self, addr, value):
-        self.memory[addr] = value
-
-    def read_port(self, port):  # 0..255
-        return 0xFF
-
-    def write_port(self, port, value):
-        pass
-
-
-cpu = Machine()
-cpu.memory[0:2] = bytes((0x3E, 0x2A))  # MVI A,2AH
+cpu = I8080CPU(memory.__getitem__, memory.__setitem__)
 assert cpu.step() == 7 and cpu.a == 0x2A
+```
+
+The I/O bus is two more, by keyword, and defaults to nothing connected: `IN`
+reads 0xFF and `OUT` goes nowhere. A board supplies its own and keeps whatever
+state it likes:
+
+```python
+class Board:
+    def __init__(self, rom: bytes):
+        self.rom = rom
+        self.ram = bytearray(0x2000)
+        self.cpu = I8080CPU(
+            self.read_byte, self.write_byte, read_port=self.read_port, write_port=self.write_port
+        )
 ```
 
 `step()` runs one instruction or one lifecycle boundary and returns its state
