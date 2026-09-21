@@ -71,6 +71,16 @@ is accepted when INTE allows, after the EI delay. RESET is
 reader. `trace_steps()` produces the JSON Lines conformance trace described
 in [docs/trace-schema.md](docs/trace-schema.md).
 
+To step through code, `DebugSession` adds breakpoints, bounded runs,
+watchpoints and bus-access tracking, `CommandDebugger` is a text frontend
+over it, and the two are wired together by:
+
+```text
+python -m i8080_python --load 8080pre.com@0x100 --pc 0x100
+```
+
+See [docs/debug-session.md](docs/debug-session.md).
+
 Stated limitations: only one-byte instructions can be injected on interrupt
 acknowledge (the 8228's three-byte `CALL` is refused), and the halt idle (7
 states) and RESET (3 states) counts are modeling choices, documented as such.

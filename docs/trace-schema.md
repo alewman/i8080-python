@@ -10,7 +10,10 @@ the specification and this page has a bug.
 ## Producing one
 
 From Python, `trace_steps(cpu, peek, max_steps=N, between=hook)` yields a
-`StepRecord` per boundary and `write_trace` writes them. For a CP/M exerciser:
+`StepRecord` per boundary and `write_trace` writes them;
+`iter_session_steps(session, max_steps=N)` does the same through a
+`DebugSession`, adding `accesses` when the session tracks the bus. For a
+CP/M exerciser:
 
 ```text
 python -m validation.cpm tests/exercisers/TST8080.COM --trace tst8080.jsonl --trace-steps 100000
@@ -39,6 +42,7 @@ compared; `sequence` is informational.
 | `instruction` | object or `null` | The instruction fetched at an `instruction` boundary; `null` for every other kind. |
 | `before` | state object | Processor state at the boundary's start. |
 | `after` | state object | Processor state at its end. |
+| `accesses` | array, optional | Every bus access the boundary made, in order, when the producer recorded them. |
 
 No other keys are allowed. (z80-python calls the count `t_states`; the 8080
 manuals say "states", and so does this schema.)
@@ -56,6 +60,18 @@ The kind is decided from `before`, in this order: `reset_pending`; then a
 non-null `interrupt_vector` with `inte` true and `ei_delay` 0; then
 `halted`; otherwise `instruction`. A record whose `kind` contradicts its
 `before` state is rejected.
+
+### `accesses`
+
+Each entry is `[kind, address, value]`: `"r"` or `"w"` for a memory read or
+write, `"in"` or `"out"` for a port, with the 8-bit value. The key is present
+only when the producer tracked the bus -- `iter_session_steps` over a
+`DebugSession(track_accesses=True)` ([debug-session.md](debug-session.md)) --
+and two records are compared on it **only when both carry it**, since a trace
+written without tracking says nothing about the bus either way. Without it a
+trace is byte-for-byte what a producer wrote before the key existed, so the
+schema version stays 1; a reader that predates the key rejects a record
+carrying it, because unknown keys are rejected.
 
 ### `instruction`
 
@@ -94,8 +110,9 @@ is part of what the CPU will do, and `null` still means "not pending".
 
 `first_trace_divergence(left, right)` walks both traces lazily and reports
 the first record index and field path that differ (`kind`, `states`,
-`instruction.address`, `instruction.data`, `before.<field>`,
-`after.<field>`), or `record` when one trace ends first.
+`instruction.address`, `instruction.data`, `before.<field>`, `after.<field>`,
+and `accesses` when both records carry it), or `record` when one trace ends
+first.
 
 ## Versioning
 

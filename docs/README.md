@@ -22,7 +22,9 @@ Reading order for someone who wants to understand, check, or port the core:
 6. [trace-schema.md](trace-schema.md): the JSON Lines conformance trace, the
    contract a port in another language produces to be compared with this
    core.
-7. [handoff-brief.md](handoff-brief.md): the brief the core was built from,
+7. [debug-session.md](debug-session.md): stepping, breakpoints, watchpoints,
+   bus-access tracking, the console commands and `python -m i8080_python`.
+8. [handoff-brief.md](handoff-brief.md): the brief the core was built from,
    kept as written: milestones with acceptance tests in oracle-tier order.
 
 The oracle-tier rule used throughout: rank oracles by where their expected
