@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "i8080-python"
-version = "0.1.0.dev0"
+version = "0.2.0.dev0"
 description = "Readable, pure-Python Intel 8080A instruction-core reference implementation"
 readme = "README.md"
 # The floor is the newest Python PyPy supports (3.11 as of PyPy 7.3.23); raise it when PyPy does.

@@ -145,3 +145,13 @@ def test_cli_batch_run(tmp_path, capsys) -> None:
     assert "MVI A,2AH" in out
     assert "CALL 0110H" in out
     assert "A=2A" in out
+
+
+def test_over_also_runs_rst_through_and_leaves_an_untaken_call_alone() -> None:
+    # RST 1 at 0x0100, then CZ 0120H with Z clear (not taken).
+    debugger, cpu = debugger_for([0xCF, 0xCC, 0x20, 0x01, 0x00])
+    cpu.load(0x0008, 0x3C, 0xC9)  # INR A; RET
+    assert "RST 1" in run(debugger, "over")
+    assert (cpu.pc, cpu.a, cpu.sp) == (0x0101, 0x01, 0x8000)
+    assert "CZ 0120H" in run(debugger, "over")
+    assert (cpu.pc, cpu.sp) == (0x0104, 0x8000)  # one step, nothing pushed

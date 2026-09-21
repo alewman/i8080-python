@@ -27,3 +27,7 @@ jobs:
       - run: python -m pytest -q
       - run: python -m ruff check .
       - run: python -m ruff format --check .
+      # The debugger front end, end to end on a real image.
+      - run: >
+          python -m i8080_python --load tests/exercisers/8080PRE.COM@0x100
+          --pc 0x100 --batch -c "step 5" -c "registers"
