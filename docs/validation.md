@@ -12,26 +12,34 @@ superzazu/8080's state totals for every exerciser. The claim does not cover
 per-state bus timing (the core returns totals), the 8228's multi-byte
 interrupt injection (refused), HOLD, or any machine beyond the CPU.
 
-## Certification record: commit `6c08ccd` (2026-09-18)
+## Certification record: commit `fd47550` (2026-09-21)
 
 Reproduced on Linux x86_64 under CPython 3.14.4 and PyPy 7.3.20 (Python
 3.11.13), with the exercisers at the SHA-256 values in
 [Pinned artifacts](#pinned-artifacts), MAME 0.285 at `/usr/games/mame`, and
 the non-merged `invaders.zip` read in place. Every figure below was produced
-at `6c08ccd` from a clean tree.
+at `fd47550` from a clean tree. That commit is the 0.2.0 development line:
+the bus became four callables the host passes in, and the debugger, console
+and CLI were added. The instruction semantics did not change, and re-running
+every rung is what says so.
 
 | Rung | Gate | Tier | Result | CPython 3.14.4 | PyPy 7.3.20 |
 | --- | --- | --- | --- | ---: | ---: |
-| 1, 2, 4 | `pytest -q`: 256-opcode state grid, flag-effect classes, ALU sweep against an independent formulation, worked examples, disassembler, trace, readability contract, 8080PRE, TST8080, 18 lifecycle tests, MAME lockstep | specification; self-checks; emulator-derived | 1,315 passed | 3.5 s | 5.1 s |
+| 1, 2, 4 | `pytest -q`: 256-opcode state grid, flag-effect classes, ALU sweep against an independent formulation, worked examples, disassembler, trace, debugger, console, CLI, readability contract, 8080PRE, TST8080, 18 lifecycle tests, MAME lockstep | specification; self-checks; emulator-derived | 1,354 passed | 3.3 s | 4.3 s |
 | 2 | `8080PRE.COM` | specification-derived | `8080 Preliminary tests complete`; 1,058 instructions, 7,787 states | < 0.1 s | < 0.1 s |
 | 2 | `TST8080.COM` | specification-derived | `CPU IS OPERATIONAL`; 646 instructions, 4,874 states | < 0.1 s | < 0.1 s |
-| 3 | `8080EXM.COM` | **hardware-captured** | **25 of 25 CRCs match the hardware table**, `Tests complete`; 2,919,050,143 instructions, 23,803,375,621 states | 1,890.1 s | 160.1 s |
-| 3 | `CPUTEST.COM` (opt-in) | specification-derived | `CPU TESTS OK`; 33,970,946 instructions, 255,649,733 states | 22.5 s | 3.0 s |
-| 5 | MAME 0.285 `invaders` lockstep, 60 frames | emulator-derived | 230,313 lines and 102 interrupt acceptances identical: `pc a b c d e h l sp`, F masked to its five flags, cumulative states = `totalcycles` | 2.5 s | 1.0 s |
+| 3 | `8080EXM.COM` | **hardware-captured** | **25 of 25 CRCs match the hardware table**, `Tests complete`; 2,919,050,143 instructions, 23,803,375,621 states | 2,588.7 s | 159.2 s |
+| 3 | `CPUTEST.COM` (opt-in) | specification-derived | `CPU TESTS OK`; 33,970,946 instructions, 255,649,733 states | 22.9 s | 2.0 s |
+| 5 | MAME 0.285 `invaders` lockstep, 60 frames | emulator-derived | 230,313 lines and 102 interrupt acceptances identical: `pc a b c d e h l sp`, F masked to its five flags, cumulative states = `totalcycles` | 3.1 s | 1.4 s |
 
-**Interpreter for rung 3.** Both interpreters ran 8080EXM at `6c08ccd` and
-printed all 25 hardware CRCs; PyPy is about 12 times faster. Later commits
-change documentation only, including one docstring in `_core.py`.
+**Interpreter for rung 3.** Both interpreters run 8080EXM; PyPy is roughly
+an order of magnitude faster, so it is the one to use. The previous record,
+at `6c08ccd`, had the same instruction and state totals with CPython at
+1,890.1 s and PyPy at 160.1 s. Read the CPython figures as wall-clock on a
+shared machine, not as a benchmark: this run overlapped other users' work at
+load average ~32, against ~13 for the previous one. PyPy, 159.2 s against
+160.1 s for the same 2.9 billion instructions, is the like-for-like
+comparison, and it shows the 0.2.0 bus change costing nothing measurable.
 
 **State totals against superzazu/8080.** This host traps BDOS and warm boot
 outside the CPU for free. superzazu's harness (`i8080_tests.c` at `274ffd7`)
