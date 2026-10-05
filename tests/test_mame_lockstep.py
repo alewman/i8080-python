@@ -43,7 +43,11 @@ def test_mame_periods_put_each_trigger_one_state_early() -> None:
 
 def test_lockstep_60_frames() -> None:
     if not TRACE.exists() or not DEFAULT_ROM_ZIP.exists():
-        pytest.skip("needs the MAME trace (python scripts/mame_trace.py) and invaders.zip")
+        pytest.skip(
+            "needs the MAME trace (MAME_ROMPATH=... python scripts/mame_trace.py) and "
+            f"invaders.zip (looked in {DEFAULT_ROM_ZIP}; set $I8080_INVADERS_ZIP or "
+            "$MAME_ROMPATH)"
+        )
     result = lockstep(TRACE)
     assert result.divergence is None, result.divergence
     assert result.lines == 230_313

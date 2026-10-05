@@ -102,7 +102,8 @@ python -m pip install -e ".[dev]"
 python scripts/fetch_exercisers.py          # pinned by SHA-256; --include-cputest is opt-in
 python -m pytest -q                         # rungs 1, 2, 4 (and 5 if the trace exists)
 python -m validation.cpm tests/exercisers/8080EXM.COM   # rung 3; use PyPy
-python scripts/mame_trace.py                # MAME 0.285 + invaders ROM set
+export MAME_ROMPATH=/path/to/mame/roms      # where invaders.zip lives; read in place
+python scripts/mame_trace.py                # MAME 0.285 + the invaders ROM set
 python -m validation.mame_lockstep tests/mame_traces/run60/error.log   # rung 5
 ```
 
