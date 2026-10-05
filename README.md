@@ -108,7 +108,8 @@ python -m validation.mame_lockstep tests/mame_traces/run60/error.log   # rung 5
 ```
 
 CI runs rungs 1, 2, and 4 on every push (CPython 3.12-3.14, PyPy 3.11) and
-8080EXM weekly under PyPy.
+8080EXM weekly under PyPy, which takes about five minutes on a GitHub
+runner. Rung 5 needs MAME and the ROM set, so it runs locally.
 
 ## The chip and the boards
 

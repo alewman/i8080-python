@@ -51,6 +51,16 @@ and 255,653,383. The conversion is computed in `validation/cpm.py`
 (`CPMResult.superzazu_states`) and asserted by `tests/test_exercisers.py`.
 superzazu is emulator-derived, so this is a detector agreeing, not a judge.
 
+**Rung 3 in CI.** `oracles.yml` runs 8080EXM under PyPy weekly and on
+demand. Its first scheduled run, on 2026-09-28, never started: the account's
+Actions spending limit had been reached, and GitHub reports that as a job
+failure with no log. The repository became public on 2026-10-04, which puts
+it on free standard runners, and the gate then ran for the first time on
+2026-10-05 at `c9cc11c`: all 25 CRCs, PyPy 3.11.16, 299 s (run
+37248600713). Before that date the weekly gate was configuration that had
+never executed; the hardware CRCs were, and still are, certified locally as
+recorded above.
+
 **The CRCs are checked by the harness, not taken from the program.**
 `validation.cpm.failures()` parses each printed `crc is:` value and compares
 it with the 25-entry hardware table below, so a core that corrupted the
