@@ -11,14 +11,16 @@ ROM set is read in place through ``-rompath``; nothing is copied.
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-MAME = "/usr/games/mame"
-ROMPATH = "/data/emu/source/myrient.erista.me/files/MAME/ROMs (non-merged)"
+MAME = os.environ.get("MAME", "mame")
+#: MAME's ROM search path; the set is read in place, never copied here.
+ROMPATH = os.environ.get("MAME_ROMPATH", ".")
 TRACE_LUA = """\
 local dbg = manager.machine.debugger
 dbg.visible_cpu = manager.machine.devices[":maincpu"]

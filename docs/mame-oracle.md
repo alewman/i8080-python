@@ -9,8 +9,11 @@ hardware-captured CRCs in [validation.md](validation.md).
 
 Everything on this page was run on 2026-09-11 and again on 2026-09-12 on this
 machine with MAME 0.285 at `/usr/games/mame` and the non-merged ROM set at
-`/data/emu/source/myrient.erista.me/files/MAME/ROMs (non-merged)/invaders.zip`,
-used in place via `-rompath` and never copied. No ROM bytes, and no trace
+the non-merged `invaders.zip` from a local ROM directory, used in place via
+`-rompath` and never copied. The commands below take that directory from
+`$MAME_ROMPATH` (and the binary from `$MAME`, default `mame`); on the machine
+this was certified the set is a non-merged MAME collection and the binary is
+`/usr/games/mame`. No ROM bytes, and no trace
 log, are in this repository (`*.trace` and `error.log` are gitignored).
 
 ## The recipe
@@ -27,8 +30,8 @@ dbg:command("go")
 Run, from that same directory:
 
 ```text
-/usr/games/mame invaders \
-  -rompath "/data/emu/source/myrient.erista.me/files/MAME/ROMs (non-merged)" \
+$MAME invaders \
+  -rompath "$MAME_ROMPATH" \
   -homepath "$PWD" -video none -sound none -nothrottle -noreadconfig \
   -skip_gameinfo -debug -debugger none -log -seconds_to_run 1 \
   -autoboot_script "$PWD/trace.lua"

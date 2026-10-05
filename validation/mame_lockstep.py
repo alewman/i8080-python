@@ -40,6 +40,7 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
 import zipfile
@@ -50,9 +51,19 @@ from pathlib import Path
 
 from i8080_python import FLAG_MASK, I8080CPU
 
-DEFAULT_ROM_ZIP = Path(
-    "/data/emu/source/myrient.erista.me/files/MAME/ROMs (non-merged)/invaders.zip"
-)
+
+#: Where to find ``invaders.zip``: ``$I8080_INVADERS_ZIP`` if set, else
+#: ``$MAME_ROMPATH/invaders.zip``, else the working directory. The ROM is read
+#: in place and never copied into this repository.
+def default_rom_zip() -> Path:
+    override = os.environ.get("I8080_INVADERS_ZIP")
+    if override:
+        return Path(override)
+    rompath = os.environ.get("MAME_ROMPATH")
+    return Path(rompath, "invaders.zip") if rompath else Path("invaders.zip")
+
+
+DEFAULT_ROM_ZIP = default_rom_zip()
 #: (file in invaders.zip, load address), per MAME 0.285's ROM_LOAD lines.
 ROMS = (
     ("9316b-0869_m739h.h1", 0x0000),

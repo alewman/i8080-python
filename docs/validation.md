@@ -16,8 +16,9 @@ interrupt injection (refused), HOLD, or any machine beyond the CPU.
 
 Reproduced on Linux x86_64 under CPython 3.14.4 and PyPy 7.3.20 (Python
 3.11.13), with the exercisers at the SHA-256 values in
-[Pinned artifacts](#pinned-artifacts), MAME 0.285 at `/usr/games/mame`, and
-the non-merged `invaders.zip` read in place. Every figure below was produced
+[Pinned artifacts](#pinned-artifacts), MAME 0.285 (`$MAME`, here
+`/usr/games/mame`), and the non-merged `invaders.zip` read in place from
+`$MAME_ROMPATH`. Every figure below was produced
 at `fd47550` from a clean tree. That commit is the 0.2.0 development line:
 the bus became four callables the host passes in, and the debugger, console
 and CLI were added. The instruction semantics did not change, and re-running
