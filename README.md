@@ -1,5 +1,8 @@
 # i8080-python
 
+[![CI](https://github.com/alewman/i8080-python/actions/workflows/ci.yml/badge.svg)](https://github.com/alewman/i8080-python/actions/workflows/ci.yml)
+[![Oracles](https://github.com/alewman/i8080-python/actions/workflows/oracles.yml/badge.svg)](https://github.com/alewman/i8080-python/actions/workflows/oracles.yml)
+
 A readable, dependency-free Intel 8080A **instruction core**, in
 the shape of [z80-python](https://github.com/alewman/z80-python) and
 [6502-python](https://github.com/alewman/6502-python). The host owns memory
@@ -13,7 +16,12 @@ is stated.
 ## Status
 
 Certified at commit `fd47550` (2026-09-21) on Linux x86_64, CPython 3.14.4 and
-PyPy 7.3.20 (Python 3.11.13). Every rung of the ladder in
+PyPy 7.3.20 (Python 3.11.13); re-verified at `18d2241` (2026-10-04) after the
+ROM path for rung 5 moved from a hard-coded local layout to `$MAME_ROMPATH`/
+`$I8080_INVADERS_ZIP` (byte-identical trace, all 230,313 lines still match)
+and rung 3 (`8080EXM`) ran in CI for the first time, not just locally (all
+25 hardware CRCs, PyPy 3.11.16, 299 s). No core source changed between the
+two. Every rung of the ladder in
 [docs/handoff-brief.md](docs/handoff-brief.md) passes:
 
 | Rung | Oracle and tier | Result |
