@@ -38,8 +38,11 @@ No file was ever deleted; no binary, exerciser or ROM was ever committed; no rem
 cites a GPL source. Not provenance but recorded for a history clean-up: commits `ba0b21a`
 and `54eadf0` (2026-09-12/18) wrote a machine path naming a ROM mirror into
 `docs/mame-oracle.md`, `scripts/mame_trace.py`, `validation/mame_lockstep.py`; `c9cc11c`
-removed it; the repository is public. 15 commits carry the author name "the owner's full name".
-`docs/handoff-brief.md` still holds machine paths.
+removed it. The repository is public; the history rewrite of 2026-11-21 (wave D of the
+family's history clean-up) replaced that path with `$MAME_ROMPATH` in those commits and mapped
+the owner's full name, once in the author fields of 15 commits, to the handle `alewman`
+(commit hashes older than that changed with it). `docs/handoff-brief.md` still holds machine
+paths.
 
 ## Owed
 
